@@ -1,0 +1,244 @@
+---
+title: "Climate data analysis for climate risk reduction with R"
+author: " By Michale Gebrekiors"
+date: "May, 2024"
+vignette: >
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteIndexEntry{Custom Print Methods}
+output:
+  knitr:::html_vignette:
+    toc: yes
+---
+
+```{r include=FALSE}
+library(rmarkdown)
+library(knitr)
+```
+
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = " ")
+```
+<br>
+<br>
+
+# Data import
+* Let us import the daily rainfall data using read.csv( ) function.
+
+
+```{r echo=TRUE}
+Mydata<-read.csv("D:/ClimateRiskReduction/Data/ClimateData/RainFallData/Daily_Rainfall_Data_for_32_Met_Stations.csv",header=TRUE) 
+
+```
+
+We can see the head and tail of our daily data (1992 to 2016) of 32 stations 
+
+```{r echo=TRUE}
+head(Mydata,1)
+
+```
+
+
+```{r echo=TRUE}
+tail(Mydata,1)
+
+```
+
+
+## Make a date format
+
+Dates are usaully entered into R as character strings and changed into date format using as.Date(x, "input_format") function where x is the character date and input_format gives the appropriate format for reading the date.The default format for inputting dates in R is yyyy-mm-dd.In our daily rainfall dataset, date is coded as a character variable in mm/dd/yy format. We can change the character in col 1 of our data frame to date format using the following codes
+
+
+```{r}
+Sta <- "1992-01-01" # start date
+End <- "2016-12-31" # end date
+date <- seq( from=as.Date(Sta), to =as.Date(End), by="days")#generate dates by day
+Mydata$date<-date # change col one to date format
+
+```
+
+
+if we see head of our data, column  one is changed to date format
+```{r}
+head(Mydata,1)# col one and row one
+
+```
+<br>
+<br>
+
+## make a time series 
+
+* zoo package can be installed using install.packages ("zoo")
+* and load it
+
+```{r}
+library(zoo)## an R-package for time series
+```
+
+
+```{r}
+MyDataTS <- zoo(Mydata[,-1],Mydata[,1])# chaning to zoo class
+str(MyDataTS)# see it structure 
+```
+We can see head of our time series
+
+```{r}
+head(time(MyDataTS))
+
+```
+
+see start and end time of our time series
+
+```{r}
+start(MyDataTS)# start date  of data series
+end(MyDataTS)# end date of data series
+
+```
+see the names of the stations
+```{r echo=TRUE}
+names(MyDataTS)
+
+```
+
+As example we can see time series plots of three stations 
+```{r}
+plot(MyDataTS[,c("Shire","Wukro","MekelleAP")],col=c("red","blue","black"),xlab="Year",lwd=2)
+
+```
+
+Let's us go further by a selecting a single station for Wukro city
+
+```{r}
+Mystation<-MyDataTS[,"Wukro"]# select a single station
+```
+
+
+```{r}
+plot(Mystation,main="Wukro daily rainfall", col="blue",xlab="Year",ylab= " mm",lwd=2)
+```
+
+can we calulate the average mean long-term (1992 to 2015) daily rainfall? yes. we can use the function mean in R.
+
+```{r}
+mean(Mystation)
+```
+Why NA when we try to calculate mean? because of the availability of missing values in our data. missing in R is represented by NA. What about if we add one argument in the mean function in R 
+
+```{r}
+mean(Mystation,na.rm=TRUE)# the NA is removed here
+```
+
+<br>
+<br>
+
+# Data cleaning 
+##Identify Missing Values
+
+Typical data quality problems can be revealed by basic data summaries
+
+```{r}
+summary(Mystation)
+
+```
+
+The daily rainfall  is missing for 741 days it is about a 8% of 
+the data. Why? Is it due to raingauge failure in theses days ? Did the meteorlogical agency failed in collecing rainfall for these days ?  The perecent of missing can be found as follows
+
+```{r}
+n <-length(Mystation)# number of data
+n
+
+```
+
+we can use  functions like is.na() to identify missing. it gives us logical  values TRUE  and  FALSE  which are  equivalent  to  the  numeric  values 1 and 0 and therefore the sum() and other functions can be used to obtain useful information about missing data. see the following:
+
+
+```{r}
+nm<- sum(is.na(Mystation))# number of missing data
+nm
+```
+
+
+```{r}
+pm<- (nm/n)*100 # percent of missing 
+pm
+```
+
+when were the missing values? at the begining,end or in the middle of the recorded periods? we can see them with the following code dipicted in red points.
+
+
+```{r}
+
+plot(Mystation,  main  =  "Wukro daily rainfall", col="blue",lwd=2, ylab  =  "mm",xlab="years")
+abline(h  =  120,  col  =  "black")
+points(xy.coords(x  =  time(Mystation),  y  =  120,  recycle  =  T),pch  =  ifelse(is.na(Mystation),  "l",  ""),  col  =  "red")
+grid()
+
+```
+
+<br>
+<br>
+
+## Decision on missing data
+
+Whatever the reason for missing daily rainfall data, we should decide on the most acceptable action in our model. We have three options
+
+* Do we select only  periods with continous data? or
+* Do we convert the missing values to mean or to another values?
+* Do we drop all the rows where our rainfall data is missing?
+
+There are a lot of methods for handiling missing data in climatology and hydrology in which we will discuss it in another topic . In this Wukro city, we might decide to drop the data rows with missing data about daily rainfall since there are less than 10% .
+
+
+<br>
+<br>
+
+
+# Converting daily to lower temporal scale
+## To monthly totals
+
+*we have a program saved as DailyTomonthly.R in the RCode directory.
+
+```{r}
+source("D:/ClimateRiskReduction/RCode/DailyTomonthly.R")
+
+```
+
+```{r}
+m<-DailyTomonthly(Mystation,sum,na.rm = TRUE)
+
+```
+
+
+```{r}
+M <- matrix(m, ncol=12, byrow=TRUE)
+colnames(M) <- month.abb
+rownames(M) <- unique(format(time(m), "%Y"))
+boxplot(M,main="Monthly rainfall distributions for Wukro city",xlab="Months",ylab="mm")
+
+```
+<br>
+<br>
+
+
+```{r}
+## Daily to annual
+source("D:/ClimateRiskReduction/RCode/DailyToAnnual.R")
+
+```
+
+
+
+
+##To annual totals
+
+```{r}
+A<-DailyToAnnual(Mystation,sum,na.rm = TRUE)
+plot(A,main="Average annual rainfall total for Wukro city",type="o",lwd=2,col="blue",xlab="years",ylab="mm")
+
+```
+
+
+
+
